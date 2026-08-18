@@ -54,12 +54,12 @@ public class InputConnectionImpl implements InputConnection
 		this.name = null;
 	}
 
-	public DataInputStream openDataInputStream() 
+	public DataInputStream openDataInputStream() throws java.io.IOException
 	{
 		return new DataInputStream(openInputStream());
 	}
 
-	public InputStream openInputStream() 
+	public InputStream openInputStream() throws java.io.IOException
 	{
 		return Mobile.getMIDletResourceAsStream(name);
 	}

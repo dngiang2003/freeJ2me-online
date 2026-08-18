@@ -18,9 +18,9 @@ package javax.microedition.io;
 
 public interface ContentConnection extends StreamConnection
 {
-	public String getEncoding();
+	public String getEncoding() throws java.io.IOException;
 
-	public long getLength();
+	public long getLength() throws java.io.IOException;
 
-	public String getType();
+	public String getType() throws java.io.IOException;
 }

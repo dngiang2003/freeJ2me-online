@@ -18,11 +18,15 @@ package javax.microedition.io;
 
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.UnsupportedEncodingException;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLConnection;
+import java.net.MalformedURLException;
+import java.net.ProtocolException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -31,69 +35,219 @@ import org.recompile.mobile.Mobile;
 
 class HttpConnectionImpl implements HttpConnection, com.nttdocomo.io.HttpConnection
 {
+	private static final int CONNECT_TIMEOUT = 10000;
+	private static final int READ_TIMEOUT = 30000;
 
-	Map<String, String> requestProperty = new HashMap<String, String>();
-	private String url, requestMethod;
+	private final String url;
+	private String requestMethod = GET;
 
-	public HttpConnectionImpl(String url) { this.url = url; }
+	private Map<String, String> requestProperty = new HashMap<String, String>();
+
+	private HttpURLConnection conn;
+	private URL urlObj;
+	private OutputStream pendingOutput;
+
+	public HttpConnectionImpl(String url)
+	{
+		this.url = url;
+		Mobile.log(Mobile.LOG_DEBUG, HttpConnectionImpl.class.getPackage().getName() + "." + HttpConnectionImpl.class.getSimpleName() + ": " + "New Http Connection: " + this.url);
+	}
+
+	private void flushOutput()
+	{
+		if (pendingOutput != null)
+		{
+			try
+			{
+				pendingOutput.close();
+			}
+			catch (IOException e) { Mobile.log(Mobile.LOG_WARNING, HttpConnectionImpl.class.getPackage().getName() + "." + HttpConnectionImpl.class.getSimpleName() + ": " + "Error closing output stream: " + e.getMessage()); }
+			pendingOutput = null;
+		}
+	}
+
+	private HttpURLConnection getConnection() throws IOException
+	{
+		flushOutput();
+		if (conn == null)
+		{
+			try
+			{
+				urlObj = new URL(url.trim().replace(" ", "%20"));
+			}
+			catch (MalformedURLException e)
+			{
+				Mobile.log(Mobile.LOG_WARNING, HttpConnectionImpl.class.getPackage().getName() + "." + HttpConnectionImpl.class.getSimpleName() + ": " + "Malformed URL: " + url);
+				throw new IOException("Malformed URL: " + url);
+			}
+			URLConnection c = urlObj.openConnection();
+			if (c instanceof HttpURLConnection)
+			{
+				conn = (HttpURLConnection)c;
+			}
+			else
+			{
+				throw new IOException("Not an HTTP URL: " + url);
+			}
+			conn.setConnectTimeout(CONNECT_TIMEOUT);
+			conn.setReadTimeout(READ_TIMEOUT);
+			conn.setInstanceFollowRedirects(true);
+			if (!requestProperty.containsKey("User-Agent"))
+			{
+				conn.setRequestProperty("User-Agent", "FreeJ2ME/2.2.9");
+			}
+			for (Map.Entry<String, String> entry : requestProperty.entrySet())
+			{
+				conn.setRequestProperty(entry.getKey(), entry.getValue());
+			}
+			conn.setRequestMethod(requestMethod);
+			Mobile.log(Mobile.LOG_WARNING, HttpConnectionImpl.class.getPackage().getName() + "." + HttpConnectionImpl.class.getSimpleName() + ": " + "Http Connection requested: " + this.url);
+		}
+		return conn;
+	}
 
 	public String getURL() { return url; }
 
 	public String getProtocol() { return url.split(":")[0]; }
 
-	public String getHost() { return ""; }
+	public String getHost()
+	{
+		try { return new URL(url).getHost(); }
+		catch (MalformedURLException e) { return ""; }
+	}
 
-	public String getFile() { return ""; }
+	public String getFile()
+	{
+		try
+		{
+			String file = new URL(url).getFile();
+			return (file != null) ? file : "";
+		}
+		catch (MalformedURLException e) { return ""; }
+	}
 
-	public String getRef() { return ""; }
+	public String getRef()
+	{
+		try
+		{
+			String ref = new URL(url).getRef();
+			return (ref != null) ? ref : "";
+		}
+		catch (MalformedURLException e) { return ""; }
+	}
 
-	public String getQuery() { return ""; }
+	public String getQuery()
+	{
+		try
+		{
+			String query = new URL(url).getQuery();
+			return (query != null) ? query : "";
+		}
+		catch (MalformedURLException e) { return ""; }
+	}
 
-	public int getPort() { return 80; }
+	public int getPort()
+	{
+		try
+		{
+			int port = new URL(url).getPort();
+			if (port == -1)
+			{
+				return (url.toLowerCase().startsWith("https:")) ? 443 : 80;
+			}
+			return port;
+		}
+		catch (MalformedURLException e) { return 80; }
+	}
 
 	public String getRequestMethod() { return requestMethod; }
 
-	public void setRequestMethod(String method) { this.requestMethod = method; }
+	public void setRequestMethod(String method)
+	{
+		this.requestMethod = method;
+		if (conn != null)
+		{
+			try { conn.setRequestMethod(method); }
+			catch (ProtocolException e) { Mobile.log(Mobile.LOG_WARNING, HttpConnectionImpl.class.getPackage().getName() + "." + HttpConnectionImpl.class.getSimpleName() + ": " + "Unsupported request method: " + method); }
+		}
+	}
 
 	public String getRequestProperty(String key) { return requestProperty.get(key); }
 
-	public void setRequestProperty(String key, String value) { requestProperty.put(key, value); }
+	public void setRequestProperty(String key, String value)
+	{
+		requestProperty.put(key, value);
+		if (conn != null)
+		{
+			conn.setRequestProperty(key, value);
+		}
+	}
 
-	public void connect() throws java.io.IOException { Mobile.log(Mobile.LOG_WARNING, HttpConnectionImpl.class.getPackage().getName() + "." + HttpConnectionImpl.class.getSimpleName() + ": " + "Http Connection requested: "+ this.url); }
+	public void connect() throws IOException { getConnection().connect(); }
 
-	public int getResponseCode() { return 200; }
+	public int getResponseCode() throws IOException
+	{
+		int code = getConnection().getResponseCode();
+		Mobile.log(Mobile.LOG_DEBUG, HttpConnectionImpl.class.getPackage().getName() + "." + HttpConnectionImpl.class.getSimpleName() + ": " + "Response code: " + code);
+		return code;
+	}
 
-	public String getResponseMessage() { return "OK"; }
+	public String getResponseMessage() throws IOException { return getConnection().getResponseMessage(); }
 
-	public long getExpiration() { return 0; }
+	public long getExpiration() throws IOException { return getConnection().getExpiration(); }
 
-	public long getDate() { return 0; }
+	public long getDate() throws IOException { return getConnection().getDate(); }
 
-	public long getLastModified() { return 0; }
+	public long getLastModified() throws IOException { return getConnection().getLastModified(); }
 
-	public String getHeaderField(String name) { return null; }
+	public String getHeaderField(String name) throws IOException { return getConnection().getHeaderField(name); }
 
-	public int getHeaderFieldInt(String name, int def) { return 0; }
+	public int getHeaderFieldInt(String name, int def) throws IOException { return getConnection().getHeaderFieldInt(name, def); }
 
-	public long getHeaderFieldDate(String name, long def) { return 0; }
+	public long getHeaderFieldDate(String name, long def) throws IOException { return getConnection().getHeaderFieldDate(name, def); }
 
-	public String getHeaderField(int n) { return null; }
+	public String getHeaderField(int n) throws IOException { return getConnection().getHeaderField(n); }
 
-	public String getHeaderFieldKey(int n) { return null; }
+	public String getHeaderFieldKey(int n) throws IOException { return getConnection().getHeaderFieldKey(n); }
 
-	public void close() { Mobile.log(Mobile.LOG_WARNING, HttpConnectionImpl.class.getPackage().getName() + "." + HttpConnectionImpl.class.getSimpleName() + ": " + "'closing' http connection"); }
+	public void close()
+	{
+		flushOutput();
+		if (conn != null)
+		{
+			conn.disconnect();
+			conn = null;
+		}
+		Mobile.log(Mobile.LOG_DEBUG, HttpConnectionImpl.class.getPackage().getName() + "." + HttpConnectionImpl.class.getSimpleName() + ": " + "'closing' http connection");
+	}
 
-	public String getType() { return null; }
+	public String getType() throws IOException { return getConnection().getContentType(); }
 
-	public String getEncoding() { return null; }
+	public String getEncoding() throws IOException { return getConnection().getContentEncoding(); }
 
-	public long getLength() { return 0; }
+	public long getLength() throws IOException { return getConnection().getContentLengthLong(); }
 
-	public DataInputStream openDataInputStream() throws UnsupportedEncodingException { return new DataInputStream(this.openInputStream()); }
+	public DataInputStream openDataInputStream() throws IOException { return new DataInputStream(this.openInputStream()); }
 
-	public InputStream openInputStream() throws UnsupportedEncodingException { return null; }
+	public InputStream openInputStream() throws IOException
+	{
+		flushOutput();
+		HttpURLConnection c = getConnection();
+		int code = c.getResponseCode();
+		if (code >= 400)
+		{
+			throw new IOException("HTTP error: " + code + " " + c.getResponseMessage());
+		}
+		return c.getInputStream();
+	}
 
-	public DataOutputStream openDataOutputStream() { return new DataOutputStream(this.openOutputStream()); }
+	public DataOutputStream openDataOutputStream() throws IOException { return new DataOutputStream(this.openOutputStream()); }
 
-	public OutputStream openOutputStream() { return null; }
+	public OutputStream openOutputStream() throws IOException
+	{
+		HttpURLConnection c = getConnection();
+		c.setDoOutput(true);
+		pendingOutput = c.getOutputStream();
+		return pendingOutput;
+	}
 }

@@ -163,9 +163,9 @@ public class ScratchPadConnection implements javax.microedition.io.StreamConnect
 		return null;
 	}
 
-    public DataOutputStream openDataOutputStream() { return new DataOutputStream(openOutputStream()); }
+    public DataOutputStream openDataOutputStream() throws IOException { return new DataOutputStream(openOutputStream()); }
 
-	public OutputStream openOutputStream() 
+	public OutputStream openOutputStream() throws IOException 
 	{
         String[] parsedName = name.split(";");
 

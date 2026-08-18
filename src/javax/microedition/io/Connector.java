@@ -41,6 +41,14 @@ public class Connector
 		{
 			return new com.nttdocomo.util.ScratchPadConnection(name).openInputStream();
 		}
+		if (name.startsWith("http://") || name.startsWith("https://"))
+		{
+			return new HttpConnectionImpl(name).openInputStream();
+		}
+		if (name.startsWith("socket://") || name.startsWith("socket:"))
+		{
+			return new SocketConnectionImpl(name).openInputStream();
+		}
 		return new InputConnectionImpl(name).openInputStream();
 	}
 
@@ -49,6 +57,14 @@ public class Connector
 		if (name.startsWith("scratchpad:"))
 		{
 			return new com.nttdocomo.util.ScratchPadConnection(name).openDataInputStream();
+		}
+		if (name.startsWith("http://") || name.startsWith("https://"))
+		{
+			return new HttpConnectionImpl(name).openDataInputStream();
+		}
+		if (name.startsWith("socket://") || name.startsWith("socket:"))
+		{
+			return new SocketConnectionImpl(name).openDataInputStream();
 		}
 		return new InputConnectionImpl(name).openDataInputStream();
 	}
@@ -70,7 +86,9 @@ public class Connector
 			return new InputConnectionImpl(name);
 		}
 
-		if (name.startsWith("http://") || name.startsWith("https://") || name.startsWith("socket://")) { return new HttpConnectionImpl(name); }
+		if (name.startsWith("http://") || name.startsWith("https://")) { return new HttpConnectionImpl(name); }
+
+		if (name.startsWith("socket://") || name.startsWith("socket:")) { return new SocketConnectionImpl(name); }
 
 		if(Mobile.usingMessagingAPI) 
 		{
@@ -80,20 +98,36 @@ public class Connector
 		return null; 
 	}
 
-	public static DataOutputStream openDataOutputStream(String name) 
+	public static DataOutputStream openDataOutputStream(String name) throws IOException
 	{
 		if (name.startsWith("scratchpad:"))
 		{
 			return new com.nttdocomo.util.ScratchPadConnection(name).openDataOutputStream();
 		}
+		if (name.startsWith("http://") || name.startsWith("https://"))
+		{
+			return new HttpConnectionImpl(name).openDataOutputStream();
+		}
+		if (name.startsWith("socket://") || name.startsWith("socket:"))
+		{
+			return new SocketConnectionImpl(name).openDataOutputStream();
+		}
 		return new DataOutputStream(output); 
 	}
 
-	public static OutputStream openOutputStream(String name) 
+	public static OutputStream openOutputStream(String name) throws IOException
 	{
 		if (name.startsWith("scratchpad:"))
 		{
 			return new com.nttdocomo.util.ScratchPadConnection(name).openOutputStream();
+		}
+		if (name.startsWith("http://") || name.startsWith("https://"))
+		{
+			return new HttpConnectionImpl(name).openOutputStream();
+		}
+		if (name.startsWith("socket://") || name.startsWith("socket:"))
+		{
+			return new SocketConnectionImpl(name).openOutputStream();
 		}
 		return output; 
 	}

@@ -27,6 +27,6 @@ public interface InputConnection extends Connection
 
 	public DataInputStream openDataInputStream() throws UnsupportedEncodingException, IOException, EOFException;
 
-	public InputStream openInputStream() throws UnsupportedEncodingException, EOFException;
+	public InputStream openInputStream() throws UnsupportedEncodingException, IOException, EOFException;
 
 }

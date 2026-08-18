@@ -22,8 +22,8 @@ import java.io.DataOutputStream;
 public interface OutputConnection extends Connection
 {
 
-	public DataOutputStream openDataOutputStream();
+	public DataOutputStream openDataOutputStream() throws java.io.IOException;
 
-	public OutputStream openOutputStream();
+	public OutputStream openOutputStream() throws java.io.IOException;
 
 }

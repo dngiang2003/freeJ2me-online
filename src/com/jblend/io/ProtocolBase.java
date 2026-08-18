@@ -34,11 +34,11 @@ public abstract class ProtocolBase implements Connection, StreamConnection
 
 	public void close() { }
 
-	public InputStream openInputStream() { return null; }
+	public InputStream openInputStream() throws IOException { return null; }
 
-	public OutputStream openOutputStream() { return null; }
+	public OutputStream openOutputStream() throws IOException { return null; }
 
-	public DataInputStream openDataInputStream()  { return null; }
+	public DataInputStream openDataInputStream() throws IOException { return null; }
 
-	public DataOutputStream openDataOutputStream() { return null; }
+	public DataOutputStream openDataOutputStream() throws IOException { return null; }
 }

@@ -63,25 +63,25 @@ public interface HttpConnection extends ContentConnection
 	public static final String POST = "POST";
 
 
-	long getDate();
+	long getDate() throws java.io.IOException;
 
-	public long getExpiration();
+	public long getExpiration() throws java.io.IOException;
 
 	public String getFile();
 
-	public String getHeaderField(int n);
+	public String getHeaderField(int n) throws java.io.IOException;
 
-	public String getHeaderField(String name);
+	public String getHeaderField(String name) throws java.io.IOException;
 
-	public long getHeaderFieldDate(String name, long def);
+	public long getHeaderFieldDate(String name, long def) throws java.io.IOException;
 
-	public int getHeaderFieldInt(String name, int def);
+	public int getHeaderFieldInt(String name, int def) throws java.io.IOException;
 
-	public String getHeaderFieldKey(int n);
+	public String getHeaderFieldKey(int n) throws java.io.IOException;
 
 	public String getHost();
 
-	public long getLastModified();
+	public long getLastModified() throws java.io.IOException;
 
 	public int getPort();
 
@@ -95,23 +95,23 @@ public interface HttpConnection extends ContentConnection
 
 	public String getRequestProperty(String key);
 
-	public int getResponseCode();
+	public int getResponseCode() throws java.io.IOException;
 
-	public String getResponseMessage();
+	public String getResponseMessage() throws java.io.IOException;
 
 	// DoJa methods
     public String getURL();
 
-    public void setRequestMethod(String method);
+	public void setRequestMethod(String method) throws java.io.IOException;
 
-    public void setRequestProperty(String key, String value);
+	public void setRequestProperty(String key, String value) throws java.io.IOException;
 
-    public void connect() throws java.io.IOException;
+	public void connect() throws java.io.IOException;
 
-    public void close();
+	public void close() throws java.io.IOException;
     
-    public java.io.InputStream openInputStream() throws java.io.UnsupportedEncodingException;
+    public java.io.InputStream openInputStream() throws java.io.IOException;
 
-    public java.io.OutputStream openOutputStream();
+    public java.io.OutputStream openOutputStream() throws java.io.IOException;
 
 }
