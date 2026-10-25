@@ -250,7 +250,7 @@ public class Form extends Screen
 		return height;
 	}
 
-	protected Item getFocusedItem() 
+	public Item getFocusedItem() 
 	{
 		if (items.isEmpty()) { return null; }
 

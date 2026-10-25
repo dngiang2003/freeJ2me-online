@@ -327,7 +327,7 @@ public class MIDletLoader extends URLClassLoader
 				platformImage = MobilePlatform.getLcdBackbuffer();
 				graphics = platformImage.getMIDPGraphics();
 
-				while(!MIDletSelected) { render(); }
+				while(!MIDletSelected) { render(); java.util.concurrent.locks.LockSupport.parkNanos(16666667L); }
 				// keyPress() will run until MIDletSelected becomes true
 			}
 

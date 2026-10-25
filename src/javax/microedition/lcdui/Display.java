@@ -49,6 +49,23 @@ public class Display
 
 	private Thread flashThread;
 
+	// Opt-in: standalone frontends retain their compatibility event loop.
+	private static final boolean cloudEvents = Boolean.getBoolean("freej2me.cloud.events");
+	private static final int MAX_INPUT_EVENTS = 1024;
+    private static final java.util.concurrent.atomic.AtomicLong cloudInputCount = new java.util.concurrent.atomic.AtomicLong();
+    private static final java.util.concurrent.atomic.AtomicLong cloudInputMaxLag = new java.util.concurrent.atomic.AtomicLong();
+    public static long getCloudInputCount() { return cloudInputCount.get(); }
+    public static long getCloudInputMaxLagMicros() { return cloudInputMaxLag.get() / 1000; }
+    private static final class CloudInput implements Runnable {
+        private final Runnable event;
+        private final long queuedAt = System.nanoTime();
+        CloudInput(Runnable event) { this.event = event; }
+        public void run() {
+            cloudInputMaxLag.accumulateAndGet(System.nanoTime() - queuedAt, Math::max);
+            try { event.run(); } finally { cloudInputCount.incrementAndGet(); }
+        }
+    }
+
 	public Display() 
 	{ 
 		new Thread(new Runnable() 
@@ -86,8 +103,18 @@ public class Display
 	 * the spec's need for them all to be serialized in respect to each other (except inputs can't be truly serialized into serializedEvents because apps like
 	 * Heroes Lore: Wind of Soltia spam the queue very hard and make input processing completely unreliable)
 	 */
-	public void postInputEvent(final Runnable r) 
-	{ 
+	public void postInputEvent(final Runnable r)
+	{
+		if (cloudEvents)
+		{
+			synchronized (serializedEvents)
+			{
+				if (inputEvents.size() >= MAX_INPUT_EVENTS) { throw new IllegalStateException("Input queue overloaded"); }
+				inputEvents.add(new CloudInput(r));
+				serializedEvents.notifyAll();
+			}
+			return;
+		}
 		new Thread(new Runnable() 
 		{
 			@Override
@@ -102,8 +129,9 @@ public class Display
 		}).start();
 	}
 
-	private void processEvents() 
+	private void processEvents()
 	{
+		if (cloudEvents) { processCloudEvents(); return; }
 		Runnable call = null;
 		while(true) 
 		{
@@ -149,6 +177,45 @@ public class Display
 					if(call != null) { call.run(); }
 				}
 			}
+		}
+	}
+
+	private void processCloudEvents()
+	{
+        final Runnable[] inputs = new Runnable[64];
+		while (true)
+		{
+			Runnable currentRequest, paint, serial;
+            int inputCount;
+			synchronized (serializedEvents)
+			{
+				while (serializedEvents.isEmpty() && inputEvents.isEmpty() && paintEvent.get() == null && setCurrentRequest.get() == null)
+				{
+					try { serializedEvents.wait(); }
+					catch (InterruptedException e) { Thread.currentThread().interrupt(); return; }
+				}
+				currentRequest = setCurrentRequest.getAndSet(null);
+				paint = paintEvent.getAndSet(null);
+				serial = serializedEvents.poll();
+                inputCount = Math.min(inputEvents.size(), inputs.length);
+                for (int i = 0; i < inputCount; i++) { inputs[i] = inputEvents.poll(); }
+			}
+			// Never invoke game code while holding an ingress queue monitor.
+			runCloudEvent(currentRequest);
+			runCloudEvent(paint);
+			runCloudEvent(serial);
+            for (int i = 0; i < inputCount; i++) { runCloudEvent(inputs[i]); inputs[i] = null; }
+		}
+	}
+
+	private static void runCloudEvent(Runnable event)
+	{
+		if (event == null) { return; }
+		try { event.run(); }
+		catch (Exception e)
+		{
+			// Retrying a callback may repeat purchases/saves/other game side effects.
+			Mobile.log(Mobile.LOG_ERROR, "Cloud event callback failed: " + e);
 		}
 	}
 

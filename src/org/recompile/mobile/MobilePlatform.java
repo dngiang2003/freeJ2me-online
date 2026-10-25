@@ -33,7 +33,10 @@ import java.io.InputStream;
 
 import javax.microedition.lcdui.Canvas;
 import javax.microedition.lcdui.Displayable;
+import javax.microedition.lcdui.Form;
 import javax.microedition.lcdui.Graphics;
+import javax.microedition.lcdui.Item;
+import javax.microedition.lcdui.TextField;
 import javax.microedition.lcdui.game.GameCanvas;
 
 /*
@@ -213,14 +216,15 @@ public class MobilePlatform
 			updateDoJaKeyState(Mobile.getCanvasAction(keycode), true);
 			if (!Mobile.isDoJa && Mobile.getDisplay() != null && (displayable = Mobile.getDisplay().getCurrent()) != null)
 			{
-				Mobile.getDisplay().postInputEvent(new Runnable()
+				final javax.microedition.lcdui.Displayable inputTarget = displayable;
+			Mobile.getDisplay().postInputEvent(new Runnable()
 				{
 					@Override
 					public void run()
 					{
 						if(!handleCommands(Mobile.getCanvasAction(keycode)))
 						{
-							if(displayable instanceof Canvas && !((Canvas) displayable).areKeysSuppressed()) { displayable.keyPressed(keycode); }
+							if(inputTarget instanceof Canvas && !((Canvas) inputTarget).areKeysSuppressed()) { inputTarget.keyPressed(keycode); }
 						}
 					}
 				});
@@ -239,12 +243,13 @@ public class MobilePlatform
 			updateDoJaKeyState(Mobile.getCanvasAction(keycode), false);
 			if (!Mobile.isDoJa && Mobile.getDisplay() != null && (displayable = Mobile.getDisplay().getCurrent()) != null && MIDletLoader.MIDletSelected)
 			{
-				Mobile.getDisplay().postInputEvent(new Runnable()
+				final javax.microedition.lcdui.Displayable inputTarget = displayable;
+			Mobile.getDisplay().postInputEvent(new Runnable()
 				{
 					@Override
 					public void run()
 					{
-						if(displayable instanceof Canvas && !((Canvas) displayable).areKeysSuppressed()) { displayable.keyReleased(keycode); }
+						if(inputTarget instanceof Canvas && !((Canvas) inputTarget).areKeysSuppressed()) { inputTarget.keyReleased(keycode); }
 					}
 				});
 			}
@@ -257,6 +262,7 @@ public class MobilePlatform
 
 		if (!Mobile.isPaused && MIDletLoader.MIDletSelected && !Mobile.isDoJa && Mobile.getDisplay() != null && (displayable = Mobile.getDisplay().getCurrent()) != null)
 		{
+			final javax.microedition.lcdui.Displayable inputTarget = displayable;
 			Mobile.getDisplay().postInputEvent(new Runnable()
 			{
 				@Override
@@ -264,12 +270,53 @@ public class MobilePlatform
 				{
 					if(!handleCommands(Mobile.getCanvasAction(keycode)))
 					{
-						if(displayable instanceof Canvas && !((Canvas) displayable).areKeysSuppressed()) { displayable.keyRepeated(keycode); }
+						if(inputTarget instanceof Canvas && !((Canvas) inputTarget).areKeysSuppressed()) { inputTarget.keyRepeated(keycode); }
 					}
 				}
 			});
 		}
 		// TODO: DoJa
+	}
+
+	/* Paste clipboard text into the currently focused MIDP TextField */
+	public static void pasteText(final String text)
+	{
+		if(appTerminated || text == null || text.length() == 0) { return; }
+		if (Mobile.isDoJa || Mobile.getDisplay() == null) { return; }
+
+		final Displayable target = Mobile.getDisplay().getCurrent();
+		if (target == null) { return; }
+
+		final javax.microedition.lcdui.Displayable inputTarget = displayable;
+			Mobile.getDisplay().postInputEvent(new Runnable()
+		{
+			@Override
+			public void run()
+			{
+				if (target instanceof Form)
+				{
+					Item item = ((Form) target).getFocusedItem();
+					if (item instanceof TextField) { ((TextField) item).paste(text); }
+				}
+			}
+		});
+	}
+
+	/* Grab the contents of the currently focused MIDP TextField */
+	public static String getFocusedText()
+	{
+		if(appTerminated) { return null; }
+		if (Mobile.isDoJa || Mobile.getDisplay() == null) { return null; }
+
+		Displayable target = Mobile.getDisplay().getCurrent();
+		if (target == null) { return null; }
+
+		if (target instanceof Form)
+		{
+			Item item = ((Form) target).getFocusedItem();
+			if (item instanceof TextField) { return ((TextField) item).getString(); }
+		}
+		return null;
 	}
 
 	public static void pointerDragged(final int x, final int y)
@@ -278,10 +325,11 @@ public class MobilePlatform
 
 		if (!Mobile.isPaused && MIDletLoader.MIDletSelected && !Mobile.isDoJa && Mobile.getDisplay() != null && (displayable = Mobile.getDisplay().getCurrent()) != null)
 		{
+			final javax.microedition.lcdui.Displayable inputTarget = displayable;
 			Mobile.getDisplay().postInputEvent(new Runnable()
 			{
 				@Override
-				public void run() { displayable.pointerDragged(x, y); }
+				public void run() { inputTarget.pointerDragged(x, y); }
 			});
 		}
 		// TODO: DoJa
@@ -293,10 +341,11 @@ public class MobilePlatform
 
 		if (!Mobile.isPaused && MIDletLoader.MIDletSelected && !Mobile.isDoJa && Mobile.getDisplay() != null && (displayable = Mobile.getDisplay().getCurrent()) != null)
 		{
+			final javax.microedition.lcdui.Displayable inputTarget = displayable;
 			Mobile.getDisplay().postInputEvent(new Runnable()
 			{
 				@Override
-				public void run() { displayable.pointerPressed(x, y); }
+				public void run() { inputTarget.pointerPressed(x, y); }
 			});
 		}
 		else if(Mobile.isDoJa)
@@ -314,10 +363,11 @@ public class MobilePlatform
 
 		if (!Mobile.isPaused && MIDletLoader.MIDletSelected && !Mobile.isDoJa && Mobile.getDisplay() != null && (displayable = Mobile.getDisplay().getCurrent()) != null)
 		{
+			final javax.microedition.lcdui.Displayable inputTarget = displayable;
 			Mobile.getDisplay().postInputEvent(new Runnable()
 			{
 				@Override
-				public void run() { displayable.pointerReleased(x, y); }
+				public void run() { inputTarget.pointerReleased(x, y); }
 			});
 		}
 		else if(Mobile.isDoJa)

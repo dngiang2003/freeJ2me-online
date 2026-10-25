@@ -183,6 +183,9 @@ public final class AWTGUI
 	final MenuItem pauseRes = new MenuItem("Pause / Resume (Ctrl+Alt+X)");
 	final MenuItem exitMenuItem = new MenuItem("Exit FreeJ2ME");
 	final MenuItem mapInputs = new MenuItem("Manage Inputs");
+	final MenuItem virtualKeypad = new MenuItem("Virtual Keypad");
+
+	private VirtualKeyboard virtualKeyboard = null;
 
 	final MenuItem showPlayer = new MenuItem("J2ME Media Player");
 
@@ -569,6 +572,7 @@ public final class AWTGUI
 		mapInputs.setActionCommand("MapInputs");
 		awtButtons[5].setActionCommand("ApplyInputs");
 		awtButtons[6].setActionCommand("CancelInputs");
+		virtualKeypad.setActionCommand("VirtualKeypad");
 
 		showPlayer.setActionCommand("ShowPlayer");
 
@@ -588,6 +592,7 @@ public final class AWTGUI
 		mapInputs.addActionListener(menuItemListener);
 		awtButtons[5].addActionListener(menuItemListener);
 		awtButtons[6].addActionListener(menuItemListener);
+		virtualKeypad.addActionListener(menuItemListener);
 
 		showPlayer.addActionListener(menuItemListener);
 
@@ -1112,6 +1117,7 @@ public final class AWTGUI
 		optionMenu.add(useCustomFont);
 		optionMenu.add(resChangeMenuItem);
 		optionMenu.add(mapInputs);
+		optionMenu.add(virtualKeypad);
 		optionMenu.add(phoneType);
 		optionMenu.add(DoJaVersion);
 		optionMenu.add(screenRotation);
@@ -1257,6 +1263,7 @@ public final class AWTGUI
 			deleteTemporaryKJXFiles.setState(config.sysSettings.get("deleteTempKJXFiles").equals("on"));
 
 			// Get saved inputs from system config file.
+			System.arraycopy(Config.inputKeycodes, 0, inputKeycodes, 0, Config.inputKeycodes.length);
 			System.arraycopy(Config.inputKeycodes, 0, newInputKeycodes, 0, Config.inputKeycodes.length);
 			for(int i = 0; i < inputButtons.length; i++) { inputButtons[i].setLabel(KeyEvent.getKeyText(newInputKeycodes[i])); }
 
@@ -1346,6 +1353,11 @@ public final class AWTGUI
 
 			else if(a.getActionCommand() == "CancelInputs") { awtDialogs[4].setVisible(false); }
 
+			else if(a.getActionCommand() == "VirtualKeypad")
+			{
+				toggleVirtualKeypad();
+			}
+
 			else if(a.getActionCommand() == "ShowPlayer")
 			{
 				// Create FreeJ2MEPlayer Dialog instance and show it;
@@ -1385,8 +1397,16 @@ public final class AWTGUI
 		// So that the console window and memory stats follow the main window around
 		main.addComponentListener(new ComponentAdapter()
 		{
-            public void componentMoved(ComponentEvent e) { updateDialogLocations(main); }
-            public void componentResized(ComponentEvent e) { updateDialogLocations(main); }
+            public void componentMoved(ComponentEvent e)
+			{
+				updateDialogLocations(main);
+				if(virtualKeyboard != null && virtualKeyboard.isVisible()) { virtualKeyboard.followMainWindow(); }
+			}
+            public void componentResized(ComponentEvent e)
+			{
+				updateDialogLocations(main);
+				if(virtualKeyboard != null && virtualKeyboard.isVisible()) { virtualKeyboard.followMainWindow(); }
+			}
         });
 
 		main.setResizable(false);
@@ -1400,6 +1420,20 @@ public final class AWTGUI
 	{
 		awtDialogs[3].setLocationRelativeTo(main);
 		awtDialogs[3].setVisible(true);
+	}
+
+	public void toggleVirtualKeypad()
+	{
+		if(virtualKeyboard == null)
+		{
+			virtualKeyboard = new VirtualKeyboard(main);
+		}
+		if(virtualKeyboard.isVisible()) { virtualKeyboard.setVisible(false); }
+		else
+		{
+			virtualKeyboard.followMainWindow();
+			virtualKeyboard.setVisible(true);
+		}
 	}
 
 	public void updateDialogs()

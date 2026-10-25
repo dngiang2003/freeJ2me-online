@@ -107,6 +107,9 @@ public class FreeJ2ME
 	// AWT GUI
 	private AWTGUI awtGUI;
 
+	// Tracks pressed state of forwarded text keys (ASCII 32..126 + backspace)
+	private final boolean[] textKeysPressed = new boolean[128];
+
 	public static void main(String args[])
 	{
 		Mobile.clearOldLog();
@@ -577,6 +580,31 @@ public class FreeJ2ME
 						settingsChanged();
 					}
 				break;
+				case KeyEvent.VK_V: // Toggle Virtual Keypad (Ctrl+Alt+V)
+					if(e.isAltDown() && e.isControlDown())
+					{
+						awtGUI.toggleVirtualKeypad();
+					}
+				break;
+			}
+
+			// Forward printable text keys (letters, digits, punctuation, backspace, space)
+			// straight into the MIDlet as ASCII keycodes, so the physical PC keyboard
+			// can be used for text input (email/password/chat fields).
+			boolean shiftDown = (e.getModifiersEx() & java.awt.event.InputEvent.SHIFT_DOWN_MASK) != 0;
+			char keyChar = e.getKeyChar();
+			if(!e.isAltDown() && !e.isControlDown() && !e.isMetaDown() && isTextKey(keycode, keyChar))
+			{
+				int textKey = getTextKeycode(keycode, keyChar, shiftDown);
+				if(textKey > 0 && textKey < 128)
+				{
+					if(!textKeysPressed[textKey])
+					{
+						textKeysPressed[textKey] = true;
+						MobilePlatform.keyPressed(textKey);
+					}
+					return;
+				}
 			}
 
 			if (mobikey == Integer.MIN_VALUE) // Ignore events from keys not mapped to a phone keypad key (AWTGUI does use 0, so this can't mirror libretro)
@@ -611,6 +639,23 @@ public class FreeJ2ME
 		if(awtGUI.hasLoadedFile())
 		{
 			int mobikey = getMobileKey(e.getKeyCode());
+
+			// Release forwarded text keys
+			boolean shiftDown = (e.getModifiersEx() & java.awt.event.InputEvent.SHIFT_DOWN_MASK) != 0;
+			char keyChar = e.getKeyChar();
+			if(!e.isAltDown() && !e.isControlDown() && !e.isMetaDown() && isTextKey(e.getKeyCode(), keyChar))
+			{
+				int textKey = getTextKeycode(e.getKeyCode(), keyChar, shiftDown);
+				if(textKey > 0 && textKey < 128)
+				{
+					if(textKeysPressed[textKey])
+					{
+						textKeysPressed[textKey] = false;
+						MobilePlatform.keyReleased(textKey);
+					}
+					return;
+				}
+			}
 
 			if (mobikey == Integer.MIN_VALUE) // Ignore events from keys not mapped to a phone keypad key (AWTGUI does use 0, so this can't mirror libretro)
 			{
@@ -683,6 +728,108 @@ public class FreeJ2ME
 			if(keycode == awtGUI.inputKeycodes[i]) { return Mobile.convertAWTKeycode(i);}
 		}
 		return Integer.MIN_VALUE;
+	}
+
+	// Distinguishes physical-keyboard text keys (letters, digits, punctuation, space, backspace)
+	// from game-control keys (arrows, numpad, enter, tab, function keys, modifiers).
+	private boolean isTextKey(int keycode, char keyChar)
+	{
+		if(keycode >= KeyEvent.VK_NUMPAD0 && keycode <= KeyEvent.VK_NUMPAD9) { return false; }
+		if(keycode >= KeyEvent.VK_F1 && keycode <= KeyEvent.VK_F12) { return false; }
+		switch(keycode)
+		{
+			case KeyEvent.VK_UP:
+			case KeyEvent.VK_DOWN:
+			case KeyEvent.VK_LEFT:
+			case KeyEvent.VK_RIGHT:
+			case KeyEvent.VK_ENTER:
+			case KeyEvent.VK_TAB:
+			case KeyEvent.VK_ESCAPE:
+			case KeyEvent.VK_SHIFT:
+			case KeyEvent.VK_CONTROL:
+			case KeyEvent.VK_ALT:
+			case KeyEvent.VK_META:
+			case KeyEvent.VK_CAPS_LOCK:
+			case KeyEvent.VK_DELETE:
+			case KeyEvent.VK_HOME:
+			case KeyEvent.VK_END:
+			case KeyEvent.VK_PAGE_UP:
+			case KeyEvent.VK_PAGE_DOWN:
+			case KeyEvent.VK_INSERT:
+				return false;
+		}
+		if(keycode >= KeyEvent.VK_A && keycode <= KeyEvent.VK_Z) { return true; }
+		if(keycode >= KeyEvent.VK_0 && keycode <= KeyEvent.VK_9) { return true; }
+		if(keyChar != KeyEvent.CHAR_UNDEFINED && keyChar >= 32 && keyChar < 127) { return true; }
+		switch(keycode)
+		{
+			case KeyEvent.VK_BACK_SPACE:
+			case KeyEvent.VK_SPACE:
+			case KeyEvent.VK_PERIOD:
+			case KeyEvent.VK_COMMA:
+			case KeyEvent.VK_SLASH:
+			case KeyEvent.VK_MINUS:
+			case KeyEvent.VK_EQUALS:
+			case KeyEvent.VK_SEMICOLON:
+			case KeyEvent.VK_QUOTE:
+			case KeyEvent.VK_OPEN_BRACKET:
+			case KeyEvent.VK_CLOSE_BRACKET:
+			case KeyEvent.VK_BACK_SLASH:
+			case KeyEvent.VK_BACK_QUOTE:
+				return true;
+		}
+		return false;
+	}
+
+	// Resolves a physical-keyboard key to the ASCII keycode that J2ME Canvas expects.
+	// Prefers KeyEvent's character when available, otherwise falls back to mapping
+	// the AWT keycode (letter/digit/punctuation) while honoring the Shift modifier.
+	private int getTextKeycode(int keycode, char keyChar, boolean shiftDown)
+	{
+		if(keyChar != KeyEvent.CHAR_UNDEFINED && keyChar >= 32 && keyChar < 127) { return keyChar; }
+		boolean capsLock = false;
+		try { capsLock = Toolkit.getDefaultToolkit().getLockingKeyState(KeyEvent.VK_CAPS_LOCK); }
+		catch(Exception ex) { }
+		boolean upper = shiftDown ^ capsLock;
+		switch(keycode)
+		{
+			case KeyEvent.VK_SPACE: return 32;
+			case KeyEvent.VK_BACK_SPACE: return 8;
+			case KeyEvent.VK_PERIOD: return upper ? 62 : 46;
+			case KeyEvent.VK_COMMA: return upper ? 60 : 44;
+			case KeyEvent.VK_SLASH: return upper ? 63 : 47;
+			case KeyEvent.VK_MINUS: return upper ? 95 : 45;
+			case KeyEvent.VK_EQUALS: return upper ? 43 : 61;
+			case KeyEvent.VK_SEMICOLON: return upper ? 58 : 59;
+			case KeyEvent.VK_QUOTE: return upper ? 34 : 39;
+			case KeyEvent.VK_OPEN_BRACKET: return upper ? 123 : 91;
+			case KeyEvent.VK_CLOSE_BRACKET: return upper ? 125 : 93;
+			case KeyEvent.VK_BACK_SLASH: return upper ? 124 : 92;
+			case KeyEvent.VK_BACK_QUOTE: return upper ? 126 : 96;
+		}
+		if(keycode >= KeyEvent.VK_A && keycode <= KeyEvent.VK_Z)
+		{
+			return upper ? (int) ('A' + (keycode - KeyEvent.VK_A)) : (int) ('a' + (keycode - KeyEvent.VK_A));
+		}
+		if(keycode >= KeyEvent.VK_0 && keycode <= KeyEvent.VK_9)
+		{
+			char digit = (char) ('0' + (keycode - KeyEvent.VK_0));
+			if(!shiftDown) { return digit; }
+			switch(digit)
+			{
+				case '1': return 33;
+				case '2': return 64;
+				case '3': return 35;
+				case '4': return 36;
+				case '5': return 37;
+				case '6': return 94;
+				case '7': return 38;
+				case '8': return 42;
+				case '9': return 40;
+				case '0': return 41;
+			}
+		}
+		return -1;
 	}
 
 	private void resize()

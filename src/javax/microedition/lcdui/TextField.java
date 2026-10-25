@@ -164,6 +164,39 @@ public class TextField extends Item
 		_invalidateContents();
 	}
 
+	public void paste(String src)
+	{
+		if (src == null || constraints == UNEDITABLE) { return; }
+
+		if ((constraints & (NUMERIC | PHONENUMBER | DECIMAL)) != 0)
+		{
+			StringBuilder filtered = new StringBuilder();
+			for (int i = 0; i < src.length(); i++)
+			{
+				char c = src.charAt(i);
+				if (Character.isDigit(c) || c == '+' || c == '-' || c == '.') { filtered.append(c); }
+			}
+			src = filtered.toString();
+		}
+		else { src = src.replace("\r", ""); }
+
+		if (src.length() == 0) { return; }
+
+		int room = max - text.length();
+		if (room <= 0) { return; }
+		if (src.length() > room) { src = src.substring(0, room); }
+
+		StringBuilder out = new StringBuilder();
+		out.append(text, 0, caretPosition);
+		out.append(src);
+		out.append(text.substring(caretPosition));
+		text = out.toString();
+		caretPosition += src.length();
+
+		notifyStateChanged();
+		_invalidateContents();
+	}
+
 	public void setChars(char[] data, int offset, int length)
 	{
 		if (data == null) {
